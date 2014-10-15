@@ -20,21 +20,19 @@ sitecodes <- sites$sitecode
 
 product <- 'v1p8chirps'
 chirps_NA_value <- -9999
-dataset <- 'pentad'
-date_limits_string <- '198101-201424'
-#dataset <- 'monthly' # For SPI, use monthly
-#date_limits_string <- '198101-201404'
+# dataset <- 'pentad'
+# date_limits_string <- '198101-201424'
+dataset <- 'monthly' # For SPI, use monthly
+date_limits_string <- '198101-201404'
 # Note the below code is INCLUSIVE of the start date
 chirps_start_date <- as.Date('1981/1/1')
 # Note the below code is EXCLUSIVE of the end date
 chirps_end_date <- as.Date('2014/5/1')
 
-#in_base_dir <- 'O:/Data/CHIRPS'
-#out_base_dir <- 'O:/Data/CHIRPS'
 in_base_dir <- 'H:/Data/CHIRPS'
 out_base_dir <- 'H:/Data/CHIRPS'
 in_folder <- file.path(in_base_dir, paste0('global_', dataset))
-out_folder <- file.path(out_base_dir, paste0('global_', dataset))
+out_folder <- file.path(out_base_dir, paste0('TEAM_', dataset))
 stopifnot(file_test('-d', in_folder))
 stopifnot(file_test('-d', out_folder))
 
@@ -65,7 +63,7 @@ vg_plot_ppt <- foreach(sitecode=iter(sitecodes), .inorder=FALSE,
                        .combine=rbind) %dopar% {
     these_plots <- vg_pts[vg_pts$sitecode == sitecode, ]
 
-    chirps_file <- file.path(out_folder,
+    chirps_file <- file.path(in_folder,
                           paste0(product, '_', dataset, '_', sitecode, '_', 
                                  date_limits_string, '.dat'))
     stopifnot(file_test('-f', chirps_file))

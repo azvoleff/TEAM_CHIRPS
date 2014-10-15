@@ -12,8 +12,7 @@ library(doParallel)
 registerDoParallel(4)
 
 in_base_dir <- 'H:/Data/CHIRPS'
-#in_base_dir <- 'O:/Data/CHIRPS'
-in_folder <- file.path(in_base_dir, 'global_monthly')
+in_folder <- file.path(in_base_dir, 'TEAM_monthly')
 stopifnot(file_test('-d', in_folder))
 
 # Note the below code is INCLUSIVE of the start date
@@ -24,7 +23,7 @@ dates <- seq(chirps_start_date, chirps_end_date, by='months')
 dates <- dates[dates < chirps_end_date]
 num_periods <- 12
 
-spi_files <- dir(in_folder, 'SPI_[0-9]{1,2}.envi$')
+spi_files <- dir(in_folder, 'SPI_[0-9]{1,2}.tif$')
 
 load('vg_pts.RData')
 
@@ -47,7 +46,7 @@ spis <- foreach(spi_file=iter(spi_files),
                       id.vars=c('sitecode', 'plot_ID', 'plot_num', 
                                 'spi_period'), variable.name='date', 
                       value.name='spi')
-    plot_spis$date <- as.numeric(gsub('[A-Z]{2,3}_ZOI_SPI_[0-9]{1,2}.', '', 
+    plot_spis$date <- as.numeric(gsub('[A-Z]{2,3}_SPI_[0-9]{1,2}.', '', 
                                       plot_spis$date))
     plot_spis$date <- dates[plot_spis$date]
     return(plot_spis)

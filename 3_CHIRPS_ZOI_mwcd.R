@@ -18,30 +18,6 @@ n_cpus <- 4
 cl <- makeCluster(n_cpus)
 registerDoParallel(cl)
 
-# # Load the cwd function on all worker nodes
-# init_worker <- function() {
-#     library(Rcpp)
-#     library(inline)
-#     src <- '
-#         Rcpp::NumericVector x = Rcpp::NumericVector(X);
-#         unsigned sz = x.size();
-#         Rcpp::NumericVector deficit(sz);
-#         double evap = as<double>(EVAP);
-#         for (unsigned n = 1; n < sz; n++) {
-#             if ((deficit[n - 1] - evap + x[n]) < 0) {
-#                 deficit[n] = deficit[n - 1] - evap + x[n];
-#             } else {
-#                 deficit[n] = 0;
-#             }
-#         }
-#         return(deficit);
-#         '
-#     cwd <- cxxfunction(signature(X="numeric", EVAP="numeric"), body=src, 
-#                         plugin="Rcpp")
-#     return(1)
-# }
-# stopifnot(all(clusterCall(cl, init_worker), 1))
-#
 overwrite <- TRUE
 
 sites <- read.csv('H:/Data/TEAM/Sitecode_Key/sitecode_key.csv')
@@ -175,11 +151,8 @@ zoi_mcwd <- foreach(sitecode=iter(sitecodes), .inorder=FALSE,
     # Mask areas outside ZOI
     mcwd_rast <- mcwd_rast * chirps_mask
     writeRaster(mcwd_rast,
-                filename=file.path(out_folder, paste0(dataset, "_", sitecode, '_annual_max_cwd.tif')), 
+                filename=file.path(out_folder, paste0(dataset, "_", sitecode, '_cwd_annual_max.tif')), 
                 overwrite=overwrite)
-
-
-    chirps_df$cwd[!chirps_df$inzoi] <- NA
 
     data.frame(sitecode=sitecode, year=yrs,
                mcwd_mean=cellStats(mcwd_rast, 'mean'),
@@ -192,9 +165,11 @@ save(zoi_mcwd, file=file.path(out_folder, paste0(dataset, '_ZOI_mcwd_stats.RData
 
 library(ggplot2)
 ggplot(zoi_mcwd, aes(year, mcwd_mean)) + geom_line() + facet_wrap(~sitecode)
+ggsave("mcwd_mean_by_site.png")
 
 load(file.path(out_folder, "monthly_ZOI_ppt.RData"))
 zoi_ppt$sitecode <- factor(zoi_ppt$sitecode, 
                            levels=zoi_ppt$sitecode[order(zoi_ppt$ppt_annual_mean)])
 ggplot(zoi_ppt, aes(sitecode, ppt_annual_mean)) +
     geom_bar(stat="identity")
+ggsave("ppt_annual_by_site.png")
