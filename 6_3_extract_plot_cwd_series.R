@@ -4,10 +4,13 @@
 
 library(raster)
 library(stringr)
-library(plyr)
+library(dplyr)
 library(reshape2)
 
 library(foreach)
+
+sites <- read.csv('H:/Data/TEAM/Sitecode_Key/sitecode_key.csv')
+sitecodes <- sites$sitecode
 
 in_base_dir <- 'H:/Data/CHIRPS'
 in_folder <- file.path(in_base_dir, 'TEAM_monthly')
@@ -25,24 +28,39 @@ cwd_files <- dir(in_folder, 'cwd.tif$')
 
 load('vg_pts.RData')
 
-cwds <- foreach(cwd_file=cwd_files,
+get_cwd_data <- function (cwd_type, plots) {
+    this_data <- brick(file.path(in_folder, paste0("monthly_", sitecode, "_", 
+                                                   cwd_type, ".tif")))
+    plot_datas <- extract(this_data, plots, df=TRUE)
+    plot_datas <- plot_datas[names(plot_datas) != 'ID']
+    plot_datas  <- data.frame(t(plot_datas))
+    names(plot_datas) <- plots$Unit_ID
+    plot_datas <- cbind(date=dates, plot_datas)
+    plot_datas <- melt(plot_datas, id.vars='date', variable.name='plot_ID', 
+                       value.name=cwd_type)
+    plot_datas <- cbind(sitecode=plots$sitecode, plot_datas)
+}
+
+cwds <- foreach(sitecode=sitecodes,
                 .packages=c('stringr', 'raster', 'reshape2'),
                 .inorder=FALSE, .combine=rbind) %do% {
-    this_cwd <- brick(file.path(in_folder, cwd_file))
-    this_sitecode <- gsub('monthly_', '', str_extract(cwd_file, 
-                                                      'monthly_[A-Z]{2,3}'))
-    these_plots <- vg_pts[vg_pts$sitecode == this_sitecode, ]
-    plot_cwds <- extract(this_cwd, these_plots, df=TRUE)
-    names(plot_cwds) <- gsub('monthly_', '', names(plot_cwds))
-    plot_cwds <- plot_cwds[names(plot_cwds) != 'ID']
-    plot_cwds <- cbind(sitecode=these_plots$sitecode,
-                       plot_ID=these_plots$Unit_ID, 
-                       plot_num=these_plots$number, plot_cwds)
-    plot_cwds <- melt(plot_cwds,
-                      id.vars=c('sitecode', 'plot_ID', 'plot_num'), 
-                      variable.name='date', value.name='cwd')
-    plot_cwds$date <- as.numeric(gsub('[A-Z]{2,3}_cwd.', '', plot_cwds$date))
-    plot_cwds$date <- dates[plot_cwds$date]
-    return(plot_cwds)
+    these_plots <- vg_pts[vg_pts$sitecode == sitecode, ]
+
+    plot_cwds <- get_cwd_data("cwd", these_plots)
+    plot_mcwd12s <- get_cwd_data("mcwd12", these_plots)
+    plot_cwd_run12s <- get_cwd_data("cwd_run12", these_plots)
+    plot_mcwd_run12s <- get_cwd_data("mcwd_run12", these_plots)
+
+    # Pull out max 12-month running cumulative water deficit
+    stopifnot(nrow(plot_cwds) == nrow(plot_mcwd12s))
+    stopifnot(nrow(plot_mcwd12s) == nrow(plot_cwd_run12s))
+    stopifnot(nrow(plot_cwd_run12s) == nrow(plot_mcwd_run12s))
+
+    plot_cwd_indicators <- cbind(plot_cwds,
+                                 mcwd12=plot_mcwd12s$mcwd12, 
+                                 cwd_run12=plot_cwd_run12s$cwd_run12, 
+                                 mcwd_run12=plot_mcwd_run12s$mcwd_run12)
+    return(plot_cwd_indicators)
 }
+cwds <- arrange(cwds, sitecode, plot_ID, date)
 save(cwds, file='vg_plot_cwds.RData')
