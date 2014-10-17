@@ -67,11 +67,15 @@ zoi_mcwd <- foreach(sitecode=iter(sitecodes), .inorder=FALSE,
                    .packages=c('dplyr', 'raster', 'rgdal', 'sp', 'Rcpp', 
                                'inline'),
                    .combine=rbind) %dopar% {
+
+    # Define a function to calculate cumulative water deficit, given a 
+    # precipitation time series and evapotranspiration rate
     src <- '
         Rcpp::NumericVector x = Rcpp::NumericVector(X);
         unsigned sz = x.size();
         Rcpp::NumericVector deficit(sz);
         double evap = as<double>(EVAP);
+        deficit[0] = 0;
         for (unsigned n = 1; n < sz; n++) {
             if ((deficit[n - 1] - evap + x[n]) < 0) {
                 deficit[n] = deficit[n - 1] - evap + x[n];
@@ -82,6 +86,29 @@ zoi_mcwd <- foreach(sitecode=iter(sitecodes), .inorder=FALSE,
         return(deficit);
         '
     cwd <- cxxfunction(signature(X="numeric", EVAP="numeric"), body=src, 
+                        plugin="Rcpp")
+
+    # Define a function to calculate maximum cumulative water deficit over a 
+    # given cwd time series and period
+    src <- '
+        Rcpp::NumericVector cwd = Rcpp::NumericVector(CWD);
+        unsigned sz = cwd.size();
+        Rcpp::NumericVector mcwd(sz);
+        unsigned period = as<unsigned>(PERIOD);
+        for (unsigned n = 0; n < sz; n++) {
+            if (n < (period - 1)) {
+                mcwd[n] = 0;
+            } else {
+                double this_mcwd = 0;
+                for (unsigned i=0; i < period; i++) {
+                    if (cwd[n - i] < this_mcwd) this_mcwd = cwd[n - i];
+                }
+                mcwd[n] = this_mcwd;
+            }
+        }
+        return(mcwd);
+        '
+    mcwd <- cxxfunction(signature(CWD="numeric", PERIOD="integer"), body=src, 
                         plugin="Rcpp")
 
     zoi_file <- dir(zoi_folder,
@@ -126,8 +153,12 @@ zoi_mcwd <- foreach(sitecode=iter(sitecodes), .inorder=FALSE,
 
     chirps_df <- group_by(chirps_df, pixel) %>%
         arrange(year, subyear) %>%
-        mutate(cwd=cwd(ppt, evapotranspiration))
+        mutate(cwd=cwd(ppt, evapotranspiration),
+               mcwd6=cwd(ppt, 6),
+               mcwd12=cwd(ppt, 12),
+               cwd24=cwd(ppt, 24))
     chirps_df$cwd[!chirps_df$inzoi] <- NA
+    save(chirps_df, file=file.path(out_folder, paste0(dataset, "_", sitecode, '_ppt.RData')))
 
     # Use chirps raster as a template
     cwd_rast <- brick(chirps, values=FALSE, nl=nlayers(chirps))
