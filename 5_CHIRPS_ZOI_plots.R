@@ -64,10 +64,6 @@ bbs <- ggplot(filter(monthly_mean_total, sitecode == "BBS"), aes(month, total)) 
 ggsave('BukitBarisan_ppt_monthly_total.png', bbs, width=width, height=height, dpi=dpi)
 ggsave('BukitBarisan_ppt_monthly_total.eps', bbs, width=width, height=height, dpi=dpi)
 
-
-
-
-
 annual_total <- summarize(group_by(zoi_ppt, year, sitecode),
                           total=sum(ppt_mean))
 ggplot(annual_total[annual_total$year != 2014, ], aes(year, total)) +
