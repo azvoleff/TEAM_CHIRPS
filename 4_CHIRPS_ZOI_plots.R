@@ -42,6 +42,32 @@ ggsave('zoi_ppt_monthly_total.png', width=width, height=height, dpi=dpi,
        bg='transparent')
 #ggsave('zoi_ppt_monthly_total_not_transparent.png', width=width, height=height, dpi=dpi)
 
+bif <- ggplot(filter(monthly_mean_total, sitecode == "BIF"), aes(month, total)) +
+    geom_bar(stat='identity') + 
+    xlab('Month') +
+    ylab('Total precipitation (mm)') +
+    scale_x_continuous(breaks=seq(1, 12), labels=c('J', 'F', 'M', 'A', 'M', 
+                                                   'J', 'J', 'A', 'S', 'O', 
+                                                   'N', 'D')) +
+    theme_bw(base_size=18)
+ggsave('Bwindi_ppt_monthly_total.png', bif, width=width, height=height, dpi=dpi)
+ggsave('Bwindi_ppt_monthly_total.eps', bif, width=width, height=height, dpi=dpi)
+
+bbs <- ggplot(filter(monthly_mean_total, sitecode == "BBS"), aes(month, total)) +
+    geom_bar(stat='identity') + 
+    xlab('Month') +
+    ylab('Total precipitation (mm)') +
+    scale_x_continuous(breaks=seq(1, 12), labels=c('J', 'F', 'M', 'A', 'M', 
+                                                   'J', 'J', 'A', 'S', 'O', 
+                                                   'N', 'D')) +
+    theme_bw(base_size=18)
+ggsave('BukitBarisan_ppt_monthly_total.png', bbs, width=width, height=height, dpi=dpi)
+ggsave('BukitBarisan_ppt_monthly_total.eps', bbs, width=width, height=height, dpi=dpi)
+
+
+
+
+
 annual_total <- summarize(group_by(zoi_ppt, year, sitecode),
                           total=sum(ppt_mean))
 ggplot(annual_total[annual_total$year != 2014, ], aes(year, total)) +

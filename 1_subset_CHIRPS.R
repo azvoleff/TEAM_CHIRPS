@@ -10,7 +10,7 @@ library(gdalUtils)
 library(rgeos)
 library(teamlucc)
 
-n_cpus <- 4
+warp_threads <- 2
 overwrite <- TRUE
 
 sites <- read.csv('H:/Data/TEAM/Sitecode_Key/sitecode_key.csv')
@@ -19,34 +19,33 @@ sitecodes <- sites$sitecode
 #dataset <- 'pentad'
 dataset <- 'monthly'
 
-in_base_dir <- 'D:/CHIRPS_Originals'
-out_base_dir <- 'H:/Data/CHIRPS'
-in_folder <- file.path(in_base_dir, paste0('global_', dataset))
-out_folder <- file.path(out_base_dir, paste0('global_', dataset))
+in_folder <- file.path("H:", "Data", "CHIRPS-2.0", paste0('global-', dataset))
+out_folder <- file.path("H:", "Data", "CHIRPS-2.0", paste0("TEAM-", dataset))
 stopifnot(file_test('-d', in_folder))
 stopifnot(file_test('-d', out_folder))
 
-bils <- dir(in_folder, pattern='.bil$')
+tifs <- dir(in_folder, pattern='.tif$')
 
-datestrings <- gsub('.bil', '', (str_extract(bils, '[0-9]{6}.bil$')))
+datestrings <- gsub('.tif', '', (str_extract(tifs, '[0-9]{4}\\.[0-9]{2}.tif$')))
 years <- as.numeric(str_extract(datestrings, '^[0-9]{4}'))
 # The subyears strings are numeric codes referring to either pentads or months, 
 # depending on the dataset chosen.
 subyears <- as.numeric(str_extract(datestrings, '[0-9]{2}$'))
 
 datestrings <- datestrings[order(years, subyears)]
-bils <- bils[order(years, subyears)]
+tifs <- tifs[order(years, subyears)]
 
-product <- unique(str_extract(bils, '^v[0-9]*p[0-9]*chirps'))
-stopifnot(length(product) == 1)
+datestrings <- gsub('[.]', '', datestrings)
+start_date <- datestrings[1]
+end_date <- datestrings[length(datestrings)]
 
 # Build a VRT with all dates in a single layer stacked VRT file (this stacks 
-# the bils, but with delayed computation - the actual cropping and stacking 
+# the tifs, but with delayed computation - the actual cropping and stacking 
 # computations won't take place until the gdalwarp line below that is run for 
 # each aoi)
-vrt_file <- file.path(out_folder, paste0(product, '_', dataset, '_stack.vrt'))
-gdalbuildvrt(file.path(in_folder, '*.bil'), vrt_file, separate=TRUE, 
-             overwrite=overwrite)
+vrt_file <- extension(rasterTmpFile(), 'vrt')
+gdalbuildvrt(file.path(in_folder, tifs), vrt_file, separate=TRUE, 
+             overwrite=TRUE)
 
 # This is the projection of the CHIRPS files, read from the .hdr files 
 # accompanying the data
@@ -63,15 +62,15 @@ for (sitecode in sitecodes) {
     aoi <- gBuffer(aoi, width=5000)
     aoi <- spTransform(aoi, CRS(s_srs))
     te <- as.numeric(bbox(aoi))
+    # Round extent so that pixels are aligned properly
+    te <- round(te * 20) / 20
 
-    dstfile <- file.path(out_folder,
-                          paste0(product, '_', dataset, '_', sitecode, '_', 
-                                 datestrings[1], '-', 
-                                 datestrings[length(datestrings)], '.dat'))
+    base_name <- file.path(out_folder,
+                           paste0(sitecode, '_CHIRPS_', dataset,
+                                  '_', start_date, '-', end_date))
+    chirps_tif <- paste0(base_name, '.tif')
 
-    # Crop bils for this site
-    gdalwarp(vrt_file, dstfile, s_srs=s_srs, t_srs=s_srs, te=te, 
-             multi=TRUE, wo=paste0("NUM_THREADS=", n_cpus), 
-             overwrite=overwrite)
-
+    chirps <- gdalwarp(vrt_file, chirps_tif, s_srs=s_srs, te=te, multi=TRUE, 
+                       wo=paste0("NUM_THREADS=", warp_threads), overwrite=TRUE, 
+                       output_Raster=TRUE)
 }
