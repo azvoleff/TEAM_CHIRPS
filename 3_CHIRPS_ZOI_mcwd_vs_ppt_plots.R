@@ -6,7 +6,7 @@ load(file.path(out_folder, paste0('ALL_ZOIs_CHIRPS_', dataset, '_', start_date,
                                   '-', end_date, '_ZOI_cwd_stats.RData')))
 
 ggplot(zoi_cwd, aes(date, cwd_mean)) + geom_line() + facet_wrap(~sitecode)
-g\gsave("cwd_mean_by_site.png")
+ggsave("cwd_mean_by_site.png")
 
 ggplot(zoi_cwd, aes(date, mcwd12_mean)) + geom_line() + facet_wrap(~sitecode)
 ggsave("mcwd12_mean_by_site.png")

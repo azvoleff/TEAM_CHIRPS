@@ -3,18 +3,6 @@ library(plyr)
 library(lubridate)
 library(ggplot2)
 
-width <- 10
-height <- 7.5
-dpi <- 300
-transparent_opts <- theme(legend.position="bottom", 
-                          axis.text=element_text(colour='white'), 
-                          axis.title.x=element_text(colour='white'), 
-                          axis.title.y=element_text(colour='white'), 
-                          legend.background=element_rect(fill='transparent', colour=NA),
-                          legend.title=element_text(colour='white'), 
-                          legend.text=element_text(colour='white'), 
-                          plot.background=element_rect(fill='transparent', colour=NA))
-
 ###############################################################################
 # Function to calculate if data values exceed (or are lower than) a certain 
 # percentile.

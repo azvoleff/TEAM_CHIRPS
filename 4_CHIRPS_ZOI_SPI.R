@@ -42,7 +42,6 @@ calc_spi <- function(chirps_mat, spi_period) {
 }
 
 foreach (sitecode=sitecodes) %do% {
-
     message(sitecode)
     base_name <- file.path(out_folder,
                            paste0(sitecode, '_CHIRPS_', dataset,

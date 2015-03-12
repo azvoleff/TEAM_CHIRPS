@@ -21,8 +21,6 @@ registerDoParallel(cl)
 zoi_ppt <- foreach(sitecode=iter(sitecodes), .inorder=FALSE,
                    .packages=c('dplyr', 'raster', 'rgdal', 'sp', 'rgeos'),
                    .combine=rbind) %do% {
-    print(sitecode)
-
     zoi_file <- dir(zoi_folder, pattern=paste0('^ZOI_', sitecode, 
                                                '_[0-9]{4}.RData'), 
                     full.names=TRUE)
@@ -102,11 +100,15 @@ zoi_ppt <- foreach(sitecode=iter(sitecodes), .inorder=FALSE,
                 filename=paste0(base_name, '_ppt_anom_12mth.tif'), 
                 overwrite=overwrite)
 
-    data.frame(sitecode=sitecode, date=paste(start_date, end_date, sep="-"), 
-               ppt_annual_mean=cellStats(mask(ppt_mean_12mth_rast, zoi), 'mean'),
-               ppt_annual_min=cellStats(mask(ppt_mean_12mth_rast, zoi), 'min'),
-               ppt_annual_max=cellStats(mask(ppt_mean_12mth_rast, zoi), 'max'),
-               ppt_annual_sd=cellStats(mask(ppt_mean_12mth_rast, zoi), 'sd'))
+    data.frame(sitecode=sitecode, date=dates,
+               ppt_mean=cellStats(mask(chirps, zoi), 'mean'),
+               ppt_min=cellStats(mask(chirps, zoi), 'min'),
+               ppt_max=cellStats(mask(chirps, zoi), 'max'),
+               ppt_sd=cellStats(mask(chirps, zoi), 'sd'),
+               ppt_anom_mean=cellStats(mask(anom_12mth_rast, zoi), 'mean'),
+               ppt_anom_min=cellStats(mask(anom_12mth_rast, zoi), 'min'),
+               ppt_anom_max=cellStats(mask(anom_12mth_rast, zoi), 'max'),
+               ppt_anom_sd=cellStats(mask(anom_12mth_rast, zoi), 'sd'))
 }
 save(zoi_ppt, file=file.path(out_folder,
                              paste0('ALL_ZOIs_CHIRPS_', dataset, '_', 
