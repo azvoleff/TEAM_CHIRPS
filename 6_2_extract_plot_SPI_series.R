@@ -8,7 +8,6 @@ stopifnot(dataset == 'monthly')
 
 library(raster)
 library(stringr)
-library(plyr)
 library(reshape2)
 
 library(foreach)
