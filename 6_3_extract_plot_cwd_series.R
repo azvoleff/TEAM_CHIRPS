@@ -2,35 +2,30 @@
 # Extracts cwd time series for TEAM vegetation plots
 ###############################################################################
 
+source('0_settings.R')
+
 library(raster)
 library(stringr)
 library(dplyr)
 library(reshape2)
 
 library(foreach)
-
-sites <- read.csv('H:/Data/TEAM/Sitecode_Key/sitecode_key.csv')
-sitecodes <- sites$sitecode
-
-in_base_dir <- 'H:/Data/CHIRPS'
-in_folder <- file.path(in_base_dir, 'TEAM_monthly')
-stopifnot(file_test('-d', in_folder))
-
-# Note the below code is INCLUSIVE of the start date
-chirps_start_date <- as.Date('1981/1/1')
-# Note the below code is EXCLUSIVE of the end date
-chirps_end_date <- as.Date('2014/5/1')
-dates <- seq(chirps_start_date, chirps_end_date, by='months')
-dates <- dates[dates < chirps_end_date]
-num_periods <- 12
-
-cwd_files <- dir(in_folder, 'cwd.tif$')
+library(doParallel)
+cl <- makeCluster(4)
+registerDoParallel(cl)
 
 load('vg_pts.RData')
 
+# Only can extract timeseries for sites that have veg plots sampled, so need to 
+# exclude cwd files from sites without vegetation plots:
+sitecodes <- as.character(sitecodes[sitecodes %in% vg_pts$sitecode])
+
 get_cwd_data <- function (cwd_type, plots) {
-    this_data <- brick(file.path(in_folder, paste0("monthly_", sitecode, "_", 
-                                                   cwd_type, ".tif")))
+    cwd_file <- file.path(out_folder,
+                           paste0(sitecode, '_CHIRPS_', dataset,
+                                  '_', start_date, '-', end_date, "_", 
+                                  cwd_type, ".tif"))
+    this_data <- brick(cwd_file)
     plot_datas <- extract(this_data, plots, df=TRUE)
     plot_datas <- plot_datas[names(plot_datas) != 'ID']
     plot_datas  <- data.frame(t(plot_datas))
@@ -43,7 +38,7 @@ get_cwd_data <- function (cwd_type, plots) {
 
 cwds <- foreach(sitecode=sitecodes,
                 .packages=c('stringr', 'raster', 'reshape2'),
-                .inorder=FALSE, .combine=rbind) %do% {
+                .inorder=FALSE, .combine=rbind) %dopar% {
     these_plots <- vg_pts[vg_pts$sitecode == sitecode, ]
 
     plot_cwds <- get_cwd_data("cwd", these_plots)
@@ -64,3 +59,5 @@ cwds <- foreach(sitecode=sitecodes,
 }
 cwds <- arrange(cwds, sitecode, plot_ID, date)
 save(cwds, file='vg_plot_cwds.RData')
+
+stopCluster(cl)

@@ -1,74 +1,38 @@
 ###############################################################################
-# Extracts pentad precipitation timeseries for TEAM vegetation plots
+# Extracts precipitation timeseries for TEAM vegetation plots
 ###############################################################################
 
-library(raster)
+source('0_settings.R')
+
 library(stringr)
+library(raster)
 library(reshape2)
 library(lubridate)
 
 library(doParallel)
 library(foreach)
 n_cpus <- 4
-
-registerDoParallel(n_cpus)
-
-overwrite <- TRUE
-
-sites <- read.csv('H:/Data/TEAM/Sitecode_Key/sitecode_key.csv')
-sitecodes <- sites$sitecode
-
-product <- 'v1p8chirps'
-chirps_NA_value <- -9999
-# dataset <- 'pentad'
-# date_limits_string <- '198101-201424'
-dataset <- 'monthly' # For SPI, use monthly
-date_limits_string <- '198101-201404'
-# Note the below code is INCLUSIVE of the start date
-chirps_start_date <- as.Date('1981/1/1')
-# Note the below code is EXCLUSIVE of the end date
-chirps_end_date <- as.Date('2014/5/1')
-
-in_base_dir <- 'H:/Data/CHIRPS'
-out_base_dir <- 'H:/Data/CHIRPS'
-in_folder <- file.path(in_base_dir, paste0('global_', dataset))
-out_folder <- file.path(out_base_dir, paste0('TEAM_', dataset))
-stopifnot(file_test('-d', in_folder))
-stopifnot(file_test('-d', out_folder))
-
-if (dataset == 'monthly') {
-    dates <- seq(chirps_start_date, chirps_end_date, by='months')
-    dates <- dates[dates < chirps_end_date]
-    num_periods <- 12
-} else if (dataset == 'pentad') {
-    yrs <- seq(year(chirps_start_date), year(chirps_end_date))
-    # Have 72 pentads per year (12 months per year, 6 pentads per month)
-    yrs_rep <- rep(yrs, each=12*6)
-    days <- c(1, 6, 11, 16, 21, 26)
-    mths <- rep(paste(rep(seq(1, 12), each=6), days, sep='/'), length(yrs))
-    dates <- as.Date(paste(yrs_rep, mths, sep='/'))
-    dates <- dates[dates < chirps_end_date]
-    num_periods <- 72
-}
-
-# This is the projection of the CHIRPS files, read from the .hdr files 
-# accompanying the data
-s_srs <- '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0'
+cl <- makeCluster(4)
+registerDoParallel(cl)
 
 load('vg_pts.RData')
 
-vg_plot_ppt <- foreach(sitecode=iter(sitecodes), .inorder=FALSE,
+# Only can extract timeseries for sites that have veg plots sampled:
+sitecodes <- as.character(sitecodes[sitecodes %in% vg_pts$sitecode])
+
+vg_plot_ppt <- foreach(sitecode=sitecodes, .inorder=FALSE,
                        .packages=c('stringr', 'raster', 'reshape2', 
                                    'lubridate'),
                        .combine=rbind) %dopar% {
     these_plots <- vg_pts[vg_pts$sitecode == sitecode, ]
 
-    chirps_file <- file.path(in_folder,
-                          paste0(product, '_', dataset, '_', sitecode, '_', 
-                                 date_limits_string, '.dat'))
-    stopifnot(file_test('-f', chirps_file))
+    base_name <- file.path(out_folder,
+                           paste0(sitecode, '_CHIRPS_', dataset,
+                                  '_', start_date, '-', end_date))
+    chirps_tif <- paste0(base_name, '.tif')
+    stopifnot(file_test('-f', chirps_tif))
+    chirps <- brick(chirps_tif)
 
-    chirps <- brick(chirps_file)
     chirps <- calc(chirps, function(vals) {
         vals[vals == chirps_NA_value] <- NA
         return(vals)

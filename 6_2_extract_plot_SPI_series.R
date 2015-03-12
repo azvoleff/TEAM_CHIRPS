@@ -2,6 +2,10 @@
 # Extracts SPI time series for TEAM vegetation plots
 ###############################################################################
 
+source('0_settings.R')
+
+stopifnot(dataset == 'monthly')
+
 library(raster)
 library(stringr)
 library(plyr)
@@ -9,30 +13,23 @@ library(reshape2)
 
 library(foreach)
 library(doParallel)
-registerDoParallel(4)
+cl <- makeCluster(4)
+registerDoParallel(cl)
 
-in_base_dir <- 'H:/Data/CHIRPS'
-in_folder <- file.path(in_base_dir, 'TEAM_monthly')
-stopifnot(file_test('-d', in_folder))
-
-# Note the below code is INCLUSIVE of the start date
-chirps_start_date <- as.Date('1981/1/1')
-# Note the below code is EXCLUSIVE of the end date
-chirps_end_date <- as.Date('2014/5/1')
-dates <- seq(chirps_start_date, chirps_end_date, by='months')
-dates <- dates[dates < chirps_end_date]
-num_periods <- 12
-
-spi_files <- dir(in_folder, 'SPI_[0-9]{1,2}.tif$')
+spi_files <- dir(out_folder, 'SPI_[0-9]{1,2}.tif$')
 
 load('vg_pts.RData')
 
-spis <- foreach(spi_file=iter(spi_files),
+# Only can extract timeseries for sites that have veg plots sampled, so need to 
+# exclude spi files from sites without vegetation plots:
+sitecodes <- as.character(sitecodes[sitecodes %in% vg_pts$sitecode])
+spi_files <- spi_files[str_extract(spi_files, '^[A-Z]{2,3}') %in% sitecodes]
+
+spis <- foreach(spi_file=spi_files,
                 .packages=c('stringr', 'raster', 'reshape2'),
                 .inorder=FALSE, .combine=rbind) %dopar% {
-    this_spi <- brick(file.path(in_folder, spi_file))
-    this_sitecode <- gsub('monthly_', '', str_extract(spi_file, 
-                                                      'monthly_[A-Z]{2,3}'))
+    this_spi <- brick(file.path(out_folder, spi_file))
+    this_sitecode <- str_extract(spi_file, '^[A-Z]{2,3}')
     spi_period <- gsub('SPI_', '', str_extract(spi_file, 'SPI_[0-9]{1,2}'))
     these_plots <- vg_pts[vg_pts$sitecode == this_sitecode, ]
     plot_spis <- extract(this_spi, these_plots, df=TRUE)
@@ -46,9 +43,9 @@ spis <- foreach(spi_file=iter(spi_files),
                       id.vars=c('sitecode', 'plot_ID', 'plot_num', 
                                 'spi_period'), variable.name='date', 
                       value.name='spi')
-    plot_spis$date <- as.numeric(gsub('[A-Z]{2,3}_SPI_[0-9]{1,2}.', '', 
-                                      plot_spis$date))
+    plot_spis$date <- as.numeric(str_extract(plot_spis$date, '[0-9]*$'))
     plot_spis$date <- dates[plot_spis$date]
     return(plot_spis)
 }
+
 save(spis, file='vg_plot_spis.RData')
